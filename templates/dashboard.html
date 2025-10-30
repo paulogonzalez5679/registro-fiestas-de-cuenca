@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User & Event Dashboard</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#5b13ec",
+            background: "#0b0e1a",
+            surface: "#1c1f2e",
+            border: "#2a2d3e",
+            cyan: "#00f5ff",
+            pink: "#ff00ff",
+            purple: "#9400d3",
+            blue: "#4d4dff",
+            textPrimary: "#e0e0e0",
+            textSecondary: "#a492c9",
+          },
+          fontFamily: { display: ["Space Grotesk", "sans-serif"] }
+        },
+      },
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer base {
+      body { @apply font-display bg-background text-textPrimary; }
+    }
+  </style>
+</head>
+
+<body class="bg-background">
+  <div class="flex flex-col min-h-screen">
+    <!-- Header -->
+    <header
+      class="flex justify-between items-center border-b border-border px-10 py-4 sticky top-0 bg-background/90 backdrop-blur-md z-50">
+      <h1 class="text-white text-2xl font-bold">Festival de Juventudes Dashboard</h1>
+    </header>
+
+    <!-- Contenido principal -->
+    <main class="flex flex-col flex-1 px-10 py-8 gap-8">
+
+      <!-- Tarjetas de resumen -->
+      <section>
+        <h2 class="text-white text-3xl font-bold mb-5">Resumen General</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div class="p-5 bg-surface rounded-2xl border border-border">
+            <p class="text-textSecondary text-sm">Usuarios Confirmados</p>
+            <h3 class="text-3xl font-bold text-cyan mt-2">{{ stats.registered_users }}</h3>
+          </div>
+          <div class="p-5 bg-surface rounded-2xl border border-border">
+            <p class="text-textSecondary text-sm">Provincias Activas</p>
+            <h3 class="text-3xl font-bold text-purple mt-2">{{ stats.total_provinces }}</h3>
+          </div>
+          <div class="p-5 bg-surface rounded-2xl border border-border">
+            <p class="text-textSecondary text-sm">Promedio de Edad</p>
+            <h3 class="text-3xl font-bold text-pink mt-2">{{ stats.avg_age }}</h3>
+          </div>
+          <div class="p-5 bg-surface rounded-2xl border border-border">
+            <p class="text-textSecondary text-sm">Usuarios Pendientes</p>
+            <h3 class="text-3xl font-bold text-blue mt-2">{{ stats.pending_users }}</h3>
+          </div>
+        </div>
+      </section>
+
+      <!-- Filtros -->
+      <section>
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-8">
+          <div class="flex items-center gap-3 flex-1">
+            <input id="searchInput" type="text" placeholder="Buscar usuario..."
+              class="w-full px-4 py-2 rounded-lg bg-surface border border-border text-textPrimary focus:outline-none focus:border-cyan" />
+          </div>
+          <div class="flex items-center gap-3">
+            <select id="filterCiudad" class="px-4 py-2 rounded-lg bg-surface border border-border text-textSecondary">
+              <option value="">Todas las ciudades</option>
+              {% for ciudad in filter_options.cities %}
+              <option value="{{ ciudad }}">{{ ciudad }}</option>
+              {% endfor %}
+            </select>
+            <select id="filterProvincia"
+              class="px-4 py-2 rounded-lg bg-surface border border-border text-textSecondary">
+              <option value="">Todas las provincias</option>
+              {% for provincia in filter_options.provinces %}
+              <option value="{{ provincia }}">{{ provincia }}</option>
+              {% endfor %}
+            </select>
+            <select id="filterMesa" class="px-4 py-2 rounded-lg bg-surface border border-border text-textSecondary">
+              <option value="">Todas las mesas</option>
+              {% for mesa in filter_options.mesas %}
+              <option value="{{ mesa }}">{{ mesa }}</option>
+              {% endfor %}
+            </select>
+            <select id="filterRegistro" class="px-4 py-2 rounded-lg bg-surface border border-border text-textSecondary">
+              <option value="">Todos los estados</option>
+              <option value="confirmado">Confirmados</option>
+              <option value="pendiente">Pendientes</option>
+            </select>
+          </div>
+        </div>
+      </section>
+      <!-- Tabla de usuarios -->
+      <section>
+        <h2 class="text-white text-2xl font-bold mb-3">Gestión de Usuarios</h2>
+              <!-- Total de usuarios y botón de exportación -->
+      <div class="flex justify-between items-center mb-6">
+        <div class="text-textSecondary text-xl"><h1>Total de usuarios: {{ stats.total_users }}</h1></div>
+        <button id="exportExcel" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+          Exportar a Excel
+        </button>
+      </div>
+
+        <div class="overflow-x-auto rounded-xl border border-border bg-surface">
+          <table id="userTable" class="w-full min-w-[800px]">
+            <thead>
+              <tr class="bg-background">
+                <th class="px-6 py-4 text-left text-sm text-white">Nombre completo</th>
+                <th class="px-6 py-4 text-left text-sm text-white">Cedula</th>
+                <th class="px-6 py-4 text-left text-sm text-white">Celular</th>
+                <th class="px-6 py-4 text-left text-sm text-white">Ciudad</th>
+                <th class="px-6 py-4 text-left text-sm text-white">Provincia</th>
+                <th class="px-6 py-4 text-left text-sm text-white">Edad</th>
+                <th class="px-6 py-4 text-left text-sm text-white">Mesa</th>
+                <th class="px-6 py-4 text-center text-sm text-white">Registro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in users %}
+              <tr class="border-t border-border hover:bg-background">
+                <td class="px-6 py-3">{{ user.Apellidos }} {{ user.Nombres }}  </td>
+                <td class="px-6 py-3">{{ user.Cedula }}</td>
+                <td class="px-6 py-3">{{ user.Celular }}</td>
+                <td class="px-6 py-3 text-textSecondary">{{ user.Canton }}</td>
+                <td class="px-6 py-3 text-textSecondary">{{ user.Provincia }}</td>
+                <td class="px-6 py-3 text-textSecondary">{{ user.Edad }}</td>
+                <td class="px-6 py-3 text-textSecondary">{{ user.MesaSelected }}</td>
+                <td class="px-6 py-3 text-center" data-user-id="{{ user.Cedula }}">
+                  {% if user.Asistencia %}
+                  <div class="btn-registered-wrapper flex gap-2 justify-center">
+                    <button
+                      class="btn-cancel px-4 py-2 bg-red-600 text-white border border-red-700 rounded-lg">
+                      Cancelar Registro
+                    </button>
+                  </div>
+                  {% else %}
+                  <button
+                    class="btn-confirm px-4 py-2 bg-cyan/10 text-cyan border border-cyan/30 rounded-lg hover:bg-cyan hover:text-black transition-all">
+                    Confirmar
+                  </button>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <!-- Controles de paginación -->
+      <div id="paginationControls" class="flex flex-wrap justify-center items-center gap-2 mb-3 overflow-x-auto"></div>
+
+      <!-- Estadísticas -->
+      <section>
+        <h2 class="text-white text-3xl font-bold mb-4">Estadísticas Visuales</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="p-6 bg-surface border border-border rounded-xl">
+            <h3 class="text-lg font-semibold mb-2 text-white">Usuarios por Ciudad</h3>
+            <canvas id="chartCiudad" height="200"></canvas>
+          </div>
+          <div class="p-6 bg-surface border border-border rounded-xl">
+            <h3 class="text-lg font-semibold mb-2 text-white">Usuarios por Provincia</h3>
+            <canvas id="chartProvincia" height="200"></canvas>
+          </div>
+          <div class="p-6 bg-surface border border-border rounded-xl">
+            <h3 class="text-lg font-semibold mb-2 text-white">Usuarios por Edad</h3>
+            <canvas id="chartEdad" height="200"></canvas>
+          </div>
+          <div class="p-6 bg-surface border border-border rounded-xl">
+            <h3 class="text-lg font-semibold mb-2 text-white">Inscritos por Mesa de Trabajo</h3>
+            <canvas id="chartMesa" height="200"></canvas>
+          </div>
+        </div>
+      </section>
+    
+    </main>
+  </div>
+  <!-- Modal de confirmación -->
+  <div id="confirmModal" class="fixed inset-0 flex items-center justify-center bg-black/60 hidden z-50">
+    <div class="bg-surface p-6 rounded-2xl w-96 flex flex-col gap-4">
+      <h3 class="text-white text-lg font-bold" id="modalTitle">Confirmar acción</h3>
+      <p class="text-textSecondary" id="modalMessage">¿Está seguro que desea continuar?</p>
+      <!-- Loading spinner -->
+      <div id="loadingSpinner" class="hidden">
+        <div class="flex items-center justify-center gap-2">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan"></div>
+          <span class="text-cyan">Actualizando...</span>
+        </div>
+      </div>
+      <div id="modalButtons" class="flex justify-end gap-3">
+        <button id="modalCancel" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all">
+          Cancelar
+        </button>
+        <button id="modalConfirm" class="px-4 py-2 bg-cyan text-black rounded-lg hover:bg-cyan/90 transition-all">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    // Datos de las gráficas pasados desde Flask
+    const citiesData = {{ stats.cities_data | tojson }};
+    const provincesData = {{ stats.provinces_data | tojson }};
+    const ageGroups = {{ stats.age_groups | tojson }};
+    const mesasData = {{ stats.mesas_data | tojson }};
+    let currentAction = null; // "register" o "cancel"
+    let currentRow = null;
+
+    const modal = document.getElementById("confirmModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalMessage = document.getElementById("modalMessage");
+    const modalConfirm = document.getElementById("modalConfirm");
+    const modalCancel = document.getElementById("modalCancel");
+    // Gráficos Chart.js con animaciones
+
+    // Bubble Chart - Usuarios por Ciudad
+    const bubbleData = Object.keys(citiesData).map((ciudad, index) => ({
+      x: (index + 1) * 2, // más espacio horizontal
+      y: Math.floor(Math.random() * 10) + 1,
+      r: Math.sqrt(citiesData[ciudad]) * 5,
+      ciudad: ciudad
+    }));
+
+    const fluorescentColors = [
+      "#00f5ff80", "#ff00ff80", "#9400d380", "#ff149380",
+      "#00ffaa80", "#ff660080", "#ffd70080", "#ff450080",
+      "#7fff0080", "#00ff7f80", "#8a2be280", "#ff69b480"
+    ];
+    const fluorescentBorders = fluorescentColors.map(c => c.replace("80", ""));
+
+    new Chart(document.getElementById("chartCiudad"), {
+      type: "bubble",
+      data: {
+        datasets: bubbleData.map((item, i) => ({
+          label: item.ciudad,
+          data: [{ x: item.x, y: item.y, r: item.r }],
+          backgroundColor: fluorescentColors[i % fluorescentColors.length],
+          borderColor: fluorescentBorders[i % fluorescentBorders.length],
+          borderWidth: 1
+        }))
+      },
+      options: {
+        responsive: true,
+        animations: {
+          x: { duration: 2000, easing: 'easeInOutQuart', loop: false },
+          y: { duration: 2000, easing: 'easeInOutQuart', loop: false },
+          r: { duration: 2000, easing: 'easeInOutQuart', loop: false }
+        },
+        plugins: {
+          legend: { display: true, position: "left", labels: { color: "#e0e0e0" } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const ciudad = context.dataset.label;
+                const usuarios = citiesData[ciudad];
+                return `${ciudad}: ${usuarios} usuarios`;
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: "Distribución de usuarios",
+            color: "#e0e0e0",
+            font: { size: 16, weight: "bold" }
+          }
+        },
+        scales: {
+          x: { ticks: { display: false }, grid: { color: "#2a2d3e" } },
+          y: { ticks: { display: false }, grid: { color: "#2a2d3e" } }
+        }
+      }
+    });
+
+    // Doughnut Chart - Usuarios por Provincia
+    new Chart(document.getElementById("chartProvincia"), {
+      type: "doughnut",
+      data: {
+        labels: Object.keys(provincesData),
+        datasets: [{
+          data: Object.values(provincesData),
+          backgroundColor: fluorescentColors.slice(0, Object.keys(provincesData).length),
+          borderColor: fluorescentBorders.slice(0, Object.keys(provincesData).length),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        animations: { animateRotate: { duration: 1500, easing: 'easeInOutQuart', loop: true }, animateScale: { duration: 1500, easing: 'easeOutQuad', loop: true } },
+        plugins: {
+          legend: { display: true, position: "top", labels: { color: "#e0e0e0" } },
+          title: {
+            display: true,
+            text: "Distribución de usuarios por provincia",
+            color: "#e0e0e0",
+            font: { size: 16, weight: "bold" }
+          }
+        }
+      }
+    });
+
+    // Line Chart - Usuarios por Edad
+    new Chart(document.getElementById("chartEdad"), {
+      type: "line",
+      data: {
+        labels: Object.keys(ageGroups),
+        datasets: [{
+          data: Object.values(ageGroups),
+          borderColor: "#00ffd5d7",
+          backgroundColor: "#ff00ff80",
+          fill: true,
+          tension: 0.3,
+          pointRadius: 8,       // tamaño de los puntos
+          pointHoverRadius: 12,
+          pointBackgroundColor: "#00ffd5d7"  // tamaño al pasar el mouse
+        }]
+      },
+      options: {
+        responsive: true,
+        animations: {
+          tension: { duration: 1000, easing: 'linear', from: 1, to: 0, loop: true }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+
+    // Bar Chart - Inscritos por Mesa de Trabajo
+    new Chart(document.getElementById("chartMesa"), {
+      type: "bar",
+      data: {
+        labels: Object.keys(mesasData),
+        datasets: [{
+          data: Object.values(mesasData),
+          backgroundColor: "#4d4dff80",
+          borderColor: "#4d4dff",
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        animations: { y: { duration: 1200, easing: 'easeOutBounce', loop: true } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    // Función de filtrado combinado
+    function filterTable() {
+      const searchTerm = searchInput.value.toLowerCase();
+      const selectedCiudad = document.getElementById("filterCiudad").value.toLowerCase();
+      const selectedProvincia = document.getElementById("filterProvincia").value.toLowerCase();
+      const selectedMesa = document.getElementById("filterMesa").value.toLowerCase();
+      const selectedRegistro = document.getElementById("filterRegistro").value.toLowerCase();
+      const totalRows = document.querySelectorAll("#userTable tbody tr").length;
+      let visibleRowsCount = 0;
+
+      // Primero, aplicar filtros y contar filas visibles
+      document.querySelectorAll("#userTable tbody tr").forEach(row => {
+        const text = row.innerText.toLowerCase();
+        const ciudad = row.querySelector("td:nth-child(3)").textContent.toLowerCase();
+        const provincia = row.querySelector("td:nth-child(4)").textContent.toLowerCase();
+        const mesa = row.querySelector("td:nth-child(6)").textContent.toLowerCase();
+        
+        // Determinar el estado de registro basado en la presencia del botón de cancelar
+        const estaConfirmado = row.querySelector(".btn-registered-wrapper") !== null;
+        const matchesRegistro = !selectedRegistro || 
+            (selectedRegistro === "confirmado" && estaConfirmado) || 
+            (selectedRegistro === "pendiente" && !estaConfirmado);
+
+        const matchesSearch = text.includes(searchTerm);
+        const matchesCiudad = !selectedCiudad || ciudad === selectedCiudad;
+        const matchesProvincia = !selectedProvincia || provincia === selectedProvincia;
+        const matchesMesa = !selectedMesa || mesa === selectedMesa;
+
+        const isVisible = matchesSearch && matchesCiudad && matchesProvincia && matchesMesa && matchesRegistro;
+        row.dataset.filtered = isVisible ? "true" : "false";
+        if (isVisible) visibleRowsCount++;
+      });
+
+      // Mostrar u ocultar la paginación según el número de resultados
+      const paginationControls = document.getElementById("paginationControls");
+      if (visibleRowsCount > rowsPerPage) {
+        paginationControls.classList.remove("hidden");
+        showPage(1); // Reiniciar a la primera página con los nuevos filtros
+      } else {
+        paginationControls.classList.add("hidden");
+        // Mostrar todas las filas filtradas sin paginación
+        document.querySelectorAll("#userTable tbody tr").forEach(row => {
+          row.style.display = row.dataset.filtered === "true" ? "" : "none";
+        });
+      }
+
+      // Actualizar el contador de total/filtrados
+      const totalConfirmados = document.querySelectorAll(".btn-registered-wrapper").length;
+      const totalPendientes = totalRows - totalConfirmados;
+      const estadoTexto = selectedRegistro ? 
+        `(${selectedRegistro === 'confirmado' ? 'Confirmados' : 'Pendientes'}: ${visibleRowsCount})` : 
+        `(Total: ${visibleRowsCount} | Confirmados: ${totalConfirmados} | Pendientes: ${totalPendientes})`;
+      
+      document.querySelector('.text-center.text-textSecondary.text-xl.mb-6 h1').textContent = 
+        `Total de usuarios: ${totalRows} ${estadoTexto}`;
+    }
+
+    // Aplicar filtros en cada cambio
+    const searchInput = document.getElementById("searchInput");
+    searchInput.addEventListener("keyup", filterTable);
+    document.getElementById("filterCiudad").addEventListener("change", filterTable);
+    document.getElementById("filterProvincia").addEventListener("change", filterTable);
+    document.getElementById("filterMesa").addEventListener("change", filterTable);
+    document.getElementById("filterRegistro").addEventListener("change", filterTable);
+
+    //Validacion de registro de usuarios - Removido el cambio automático
+    document.querySelectorAll(".btn-confirm").forEach(button => {
+      button.addEventListener("click", () => {
+        const row = button.closest("tr");
+        showModal("register", row);
+      });
+    });
+
+    // Función para mostrar modal
+    // Mostrar modal
+    function showModal(action, row) {
+      currentAction = action;
+      currentRow = row;
+
+      if(action === "register") {
+        modalTitle.innerText = "Confirmar registro";
+        modalMessage.innerText = "¿Desea registrar este usuario?";
+        modalConfirm.classList.remove("bg-red-600");
+        modalConfirm.classList.add("bg-cyan", "text-black");
+      } else if(action === "cancel") {
+        modalTitle.innerText = "Cancelar registro";
+        modalMessage.innerText = "¿Desea cancelar el registro de este usuario?";
+        modalConfirm.classList.remove("bg-red-600");
+        modalConfirm.classList.add("bg-cyan", "text-black");
+      }
+
+      modal.classList.remove("hidden");
+    }
+   // Botones Confirmar de la tabla
+      document.querySelectorAll(".btn-confirm").forEach(button => {
+        button.addEventListener("click", () => {
+          const row = button.closest("tr");
+          showModal("register", row); // Solo mostramos modal, no tocamos la fila todavía
+        });
+      });
+
+      // Botones Cancelar de la tabla
+      document.querySelectorAll(".btn-cancel").forEach(button => {
+        button.addEventListener("click", () => {
+          const row = button.closest("tr");
+          showModal("cancel", row); // Solo mostramos modal
+        });
+      });
+
+      // Función para actualizar asistencia en el servidor
+      async function updateAttendance(userId, attendance) {
+        try {
+          const response = await fetch('/api/attendance', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              Asistencia: attendance
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Error al actualizar asistencia');
+          }
+
+          return true;
+        } catch (error) {
+          console.error('Error:', error);
+          return false;
+        }
+      }
+
+      // Confirmar acción desde modal
+      modalConfirm.addEventListener("click", async () => {
+          if (!currentRow) return;
+
+          // Obtener la cédula de la columna de cédula (segunda columna)
+          const cedula = currentRow.querySelector('td:nth-child(2)').textContent;
+          const cancelWrapper = currentRow.querySelector(".btn-registered-wrapper");
+          
+          // Mostrar loading y ocultar botones
+          const loadingSpinner = document.getElementById('loadingSpinner');
+          const modalButtons = document.getElementById('modalButtons');
+          loadingSpinner.classList.remove('hidden');
+          modalButtons.classList.add('hidden');
+          
+          // Determinar nuevo estado
+          const newAttendance = cancelWrapper && !cancelWrapper.classList.contains("hidden") ? false : true;
+
+          // Llamada a backend para actualizar DB
+          try {
+              const response = await fetch('/api/attendance', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ user_id: cedula, Asistencia: newAttendance })
+              });
+
+              if (!response.ok) throw new Error("Error actualizando asistencia");
+
+              // Actualizar UI según el nuevo estado
+              if (newAttendance) {
+                  currentRow.querySelector(".btn-confirm")?.classList.add("hidden");
+                  cancelWrapper?.classList.remove("hidden");
+                  currentRow.classList.add("bg-green-800/20");
+              } else {
+                  cancelWrapper?.classList.add("hidden");
+                  currentRow.querySelector(".btn-confirm")?.classList.remove("hidden");
+                  currentRow.classList.remove("bg-green-800/20");
+              }
+              
+              // Ocultar loading antes de recargar
+              loadingSpinner.classList.add('hidden');
+             
+              
+              window.location.reload();
+
+          } catch (err) {
+              alert(err.message);
+              // Ocultar loading y mostrar botones en caso de error
+              loadingSpinner.classList.add('hidden');
+              modalButtons.classList.remove('hidden');
+          }
+
+          modal.classList.add("hidden");
+          currentRow = null;
+      });
+
+
+
+    // Cerrar modal sin cambios
+    modalCancel.addEventListener("click", () => {
+      modal.classList.add("hidden");
+      currentAction = null;
+      currentRow = null;
+    });
+
+    // --- Paginación ---
+      const rowsPerPage = 10;
+      let currentPage = 1;
+
+      function showPage(page) {
+        const rows = document.querySelectorAll("#userTable tbody tr");
+        const totalPages = Math.ceil(rows.length / rowsPerPage);
+        
+        // Limitar la página
+        if(page < 1) page = 1;
+        if(page > totalPages) page = totalPages;
+        currentPage = page;
+        
+        // Mostrar/ocultar filas
+        rows.forEach((row, index) => {
+          row.style.display = (index >= (page-1)*rowsPerPage && index < page*rowsPerPage) ? "" : "none";
+        });
+        
+        renderPaginationControls(totalPages);
+
+        // Actualizar contador: contar filas actualmente visibles
+        const totalRows = rows.length;
+        const visibleRowsCount = Array.from(rows).filter(r => r.style.display !== 'none').length;
+      }
+
+      function renderPaginationControls(totalPages) {
+        const container = document.getElementById("paginationControls");
+        container.innerHTML = "";
+
+        // Botón anterior
+        const prevBtn = document.createElement("button");
+        prevBtn.innerText = "Anterior";
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.className = "px-3 py-1 rounded-lg border border-border text-textSecondary disabled:opacity-50 hover:bg-surface";
+        prevBtn.addEventListener("click", () => showPage(currentPage - 1));
+        container.appendChild(prevBtn);
+
+        // Mostrar números de página de 10 en 10
+        const maxVisible = 10;
+        const currentBlock = Math.floor((currentPage - 1) / maxVisible);
+        const startPage = currentBlock * maxVisible + 1;
+        const endPage = Math.min(startPage + maxVisible - 1, totalPages);
+
+        for (let i = startPage; i <= endPage; i++) {
+          const pageBtn = document.createElement("button");
+          pageBtn.innerText = i;
+          pageBtn.className = `px-3 py-1 rounded-lg border border-border ${i === currentPage ? "bg-cyan text-black" : "text-textSecondary hover:bg-surface"}`;
+          pageBtn.addEventListener("click", () => showPage(i));
+          container.appendChild(pageBtn);
+        }
+
+        // Puntos suspensivos si hay más páginas
+        if (endPage < totalPages) {
+          const dots = document.createElement("span");
+          dots.innerText = "...";
+          dots.className = "px-2 text-textSecondary";
+          container.appendChild(dots);
+        }
+
+        // Botón siguiente
+        const nextBtn = document.createElement("button");
+        nextBtn.innerText = "Siguiente";
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.className = "px-3 py-1 rounded-lg border border-border text-textSecondary disabled:opacity-50 hover:bg-surface";
+        nextBtn.addEventListener("click", () => showPage(currentPage + 1));
+        container.appendChild(nextBtn);
+      }
+
+
+      // Inicializar paginación
+      showPage(1);
+
+      // Función para exportar a Excel
+      document.getElementById('exportExcel').addEventListener('click', function() {
+        const usuarios = {{ users | tojson | safe }};
+        const headers = [
+          "Cédula",
+          "Nombres",
+          "Apellidos",
+          "Fecha de Nacimiento",
+          "Edad",
+          "Género",
+          "Etnia",
+          "Discapacidad",
+          "Provincia",
+          "Canton",
+          "Parroquia",
+          "Teléfono",
+          "Correo",
+          "Institución/Organización",
+          "Cargo",
+          "Mesa Seleccionada",
+          "Asistencia",
+          "Fecha de Registro"
+        ];
+
+        let csvContent = headers.join(",") + "\n";
+
+        // Filtrar usuarios según los filtros actuales
+        const filteredUsers = usuarios.filter(user => {
+          const row = document.querySelector(`tr[data-user-id="${user.Cedula}"]`);
+          return !row || row.dataset.filtered !== "false";
+        });
+
+        // Procesar cada usuario
+        filteredUsers.forEach(user => {
+          const formatField = (value) => {
+            if (value === null || value === undefined) return "";
+            if (typeof value === 'boolean') return value ? "Sí" : "No";
+            return String(value).trim();
+          };
+
+          const escapeCsv = (field) => {
+            if (field.includes(",") || field.includes('"') || field.includes("\n")) {
+              return `"${field.replace(/"/g, '""')}"`;
+            }
+            return field;
+          };
+
+          const rowData = [
+            escapeCsv(formatField(user.Cedula)),
+            escapeCsv(formatField(user.Nombres)),
+            escapeCsv(formatField(user.Apellidos)),
+            escapeCsv(formatField(user.FechaNacimiento)),
+            escapeCsv(formatField(user.Edad)),
+            escapeCsv(formatField(user.Genero)),
+            escapeCsv(formatField(user.Etnia)),
+            escapeCsv(formatField(user.Discapacidad)),
+            escapeCsv(formatField(user.Provincia)),
+            escapeCsv(formatField(user.Canton)),
+            escapeCsv(formatField(user.Parroquia)),
+            escapeCsv(formatField(user.Telefono)),
+            escapeCsv(formatField(user.Correo)),
+            escapeCsv(formatField(user.Institucion)),
+            escapeCsv(formatField(user.Cargo)),
+            escapeCsv(formatField(user.MesaSelected)),
+            escapeCsv(formatField(user.Asistencia ? "Sí" : "No")),
+            escapeCsv(formatField(user.FechaRegistro))
+          ];
+
+          csvContent += rowData.join(",") + "\n";
+        });
+
+        // Crear el blob con BOM para Excel
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], 
+                            { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        const now = new Date();
+        const fecha = now.toLocaleDateString('es-ES').replace(/\//g, '-');
+        const hora = now.toLocaleTimeString('es-ES').replace(/:/g, '-');
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `registro_festival_juventudes_${fecha}_${hora}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+
+      // Función para exportar a Excel
+      document.getElementById('exportExcel').addEventListener('click', function() {
+        // Obtener todos los datos de usuarios (users es la variable que contiene todos los datos originales)
+        const usuarios = {{ users | tojson | safe }};
+        
+        // Definir todas las columnas en el orden correcto
+        const headers = [
+          "Cédula",
+          "Nombres",
+          "Apellidos",
+          "Fecha de Nacimiento",
+          "Edad",
+          "Género",
+          "Etnia",
+          "Discapacidad",
+          "Provincia",
+          "Canton",
+          "Parroquia",
+          "Teléfono",
+          "Correo",
+          "Institución/Organización",
+          "Cargo",
+          "Mesa Seleccionada",
+          "Asistencia",
+          "Fecha de Registro"
+        ];
+
+        let csvContent = headers.join(",") + "\\n";
+
+        rows.forEach(row => {
+          const nombre = row.querySelector("td:nth-child(1)").textContent.trim();
+          const cedula = row.querySelector("td:nth-child(2)").textContent.trim();
+          const ciudad = row.querySelector("td:nth-child(3)").textContent.trim();
+          const provincia = row.querySelector("td:nth-child(4)").textContent.trim();
+          const edad = row.querySelector("td:nth-child(5)").textContent.trim();
+          const mesa = row.querySelector("td:nth-child(6)").textContent.trim();
+          const estado = row.querySelector(".btn-registered-wrapper") ? "Confirmado" : "Pendiente";
+
+          // Escapar comas y comillas en los campos
+          const escapeCsv = (field) => {
+            if (field.includes(",") || field.includes('"') || field.includes("\\n")) {
+              return `"${field.replace(/"/g, '""')}"`;
+            }
+            return field;
+          };
+
+          const rowData = [
+            escapeCsv(nombre),
+            escapeCsv(cedula),
+            escapeCsv(ciudad),
+            escapeCsv(provincia),
+            escapeCsv(edad),
+            escapeCsv(mesa),
+            estado
+          ];
+
+          csvContent += rowData.join(",") + "\\n";
+        });
+
+        // Crear el blob y descargar
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        // Obtener la fecha actual para el nombre del archivo
+        const now = new Date();
+        const fecha = now.toLocaleDateString('es-ES').replace(/\//g, '-');
+        const hora = now.toLocaleTimeString('es-ES').replace(/:/g, '-');
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `registro_festival_juventudes_${fecha}_${hora}.csv`);
+        document.body.appendChild(link);
+        
+        link.click();
+        
+        // Limpiar
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+
+  </script>
+</body>
+
+</html>

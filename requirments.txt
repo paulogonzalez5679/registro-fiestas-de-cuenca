@@ -1,0 +1,4 @@
+supabase
+supabase_client
+flask
+flask requests
